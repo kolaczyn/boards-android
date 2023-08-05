@@ -1,27 +1,37 @@
 package com.kolaczyn.boards
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kolaczyn.boards.models.ReplyDto
+import com.kolaczyn.boards.models.ThreadsRepliesDto
 import com.kolaczyn.boards.ui.theme.BoardsTheme
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
+import com.kolaczyn.boards.utils.formatDate
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.GET
 
 class MainActivity : ComponentActivity() {
+    private val boardsSource = BoardsSource()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -30,20 +40,42 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    RepliesList()
+                    RepliesList(boardsSource = boardsSource)
                 }
             }
         }
     }
 }
 
+// https://api.kolaczyn.com/boards/a/threads/38
 
-fun formatDate(dateString: String): String {
-    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSX")
-    val parsedDate = ZonedDateTime.parse(dateString, formatter)
+interface BoardsApiClient {
+    @GET("/boards/a/threads/47")
+    suspend fun getThreadsReplies(): ThreadsRepliesDto
+}
 
-    val displayFormatter = DateTimeFormatter.ofPattern("MM-dd 'at' HH:mm")
-    return parsedDate.withZoneSameInstant(ZoneId.systemDefault()).format(displayFormatter)
+object RetrofitBuilder {
+    private const val BASE_URL = "https://api.kolaczyn.com"
+
+    private fun getRetrofit() = Retrofit.Builder()
+        .baseUrl(BASE_URL)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    val boardsService: BoardsApiClient = getRetrofit().create(BoardsApiClient::class.java)
+}
+
+class BoardsSource {
+    private val apiService = RetrofitBuilder.boardsService
+
+    fun getThreadsReplies(): Flow<ThreadsRepliesDto?> = flow {
+        try {
+            emit(apiService.getThreadsReplies())
+        } catch (e: Exception) {
+            Log.e("BoardsSource", e.toString())
+            emit(null)
+        }
+    }
 }
 
 
@@ -80,8 +112,12 @@ fun createMockReplies(): List<ReplyDto> {
 }
 
 @Composable
-fun RepliesList() {
-    val mockReplies = createMockReplies()
+fun RepliesList(boardsSource: BoardsSource) {
+    val mockReplies by boardsSource.getThreadsReplies().collectAsState(initial = null)
+
+    if (mockReplies == null) {
+        Text(text = "Loading...")
+    }
 
     Surface(
         modifier = Modifier
@@ -98,10 +134,13 @@ fun RepliesList() {
                 fontWeight = FontWeight.Bold,
                 fontSize = 20.sp
             )
-            for (reply in mockReplies) {
-                ReplyItem(reply = reply)
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                for (reply in mockReplies?.replies ?: emptyList()) {
+                    ReplyItem(reply = reply)
+                }
             }
         }
 
     }
+
 }
