@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -15,11 +16,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kolaczyn.boards.models.BoardsThreadsDto
 import com.kolaczyn.boards.models.ReplyDto
 import com.kolaczyn.boards.models.ThreadsRepliesDto
 import com.kolaczyn.boards.ui.theme.BoardsTheme
@@ -47,11 +50,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// https://api.kolaczyn.com/boards/a/threads/38
-
 interface BoardsApiClient {
     @GET("/boards/a/threads/47")
     suspend fun getThreadsReplies(): ThreadsRepliesDto
+
+    @GET("/boards/a")
+    suspend fun getBoardsReplies(): BoardsThreadsDto
 }
 
 object RetrofitBuilder {
@@ -71,6 +75,15 @@ class BoardsSource {
     fun getThreadsReplies(): Flow<ThreadsRepliesDto?> = flow {
         try {
             emit(apiService.getThreadsReplies())
+        } catch (e: Exception) {
+            Log.e("BoardsSource", e.toString())
+            emit(null)
+        }
+    }
+
+    fun getBoardsThreads(): Flow<BoardsThreadsDto?> = flow {
+        try {
+            emit(apiService.getBoardsReplies())
         } catch (e: Exception) {
             Log.e("BoardsSource", e.toString())
             emit(null)
@@ -113,34 +126,77 @@ fun createMockReplies(): List<ReplyDto> {
 
 @Composable
 fun RepliesList(boardsSource: BoardsSource) {
-    val mockReplies by boardsSource.getThreadsReplies().collectAsState(initial = null)
+    val replies by boardsSource.getThreadsReplies().collectAsState(initial = null)
+    val threads by boardsSource.getBoardsThreads().collectAsState(initial = null)
 
-    if (mockReplies == null) {
+
+    if (replies == null || threads == null) {
         Text(text = "Loading...")
     }
 
-    Surface(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(10.dp)
-    ) {
-        Column(
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 4.dp)
+                .weight(1f),
+            contentAlignment = Alignment.TopCenter
         ) {
-            Text(
-                text = "Thread #438",
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
-            )
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                for (reply in mockReplies?.replies ?: emptyList()) {
-                    ReplyItem(reply = reply)
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(10.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 4.dp)
+                ) {
+                    Text(
+                        text = "Threads on /a/",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        for (thread in threads?.threads ?: emptyList()) {
+                            Text(text = thread.message)
+                        }
+                    }
                 }
+
             }
         }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .weight(2f),
+            contentAlignment = Alignment.BottomCenter
+        ) {
 
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(10.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 4.dp)
+                ) {
+                    Text(
+                        text = "Thread #438",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        for (reply in replies?.replies ?: emptyList()) {
+                            ReplyItem(reply = reply)
+                        }
+                    }
+                }
+
+            }
+        }
     }
+
 
 }
