@@ -1,5 +1,6 @@
 package com.kolaczyn.boards.data
 
+import com.kolaczyn.boards.data.models.BoardDto
 import com.kolaczyn.boards.data.models.BoardsThreadsDto
 import com.kolaczyn.boards.data.models.ThreadsRepliesDto
 import retrofit2.Retrofit
@@ -8,14 +9,17 @@ import retrofit2.http.GET
 import retrofit2.http.Path
 
 interface BoardsApiClient {
+    @GET("/boards")
+    suspend fun getBoards(): List<BoardDto>
+
+    @GET("/boards/{slug}")
+    suspend fun getBoardsReplies(@Path("slug") slug: String): BoardsThreadsDto
+
     @GET("/boards/{slug}/threads/{threadId}")
     suspend fun getThreadsReplies(
         @Path("slug") slug: String,
         @Path("threadId") threadId: Int
     ): ThreadsRepliesDto
-
-    @GET("/boards/{slug}")
-    suspend fun getBoardsReplies(@Path("slug") slug: String): BoardsThreadsDto
 }
 
 object RetrofitBuilder {

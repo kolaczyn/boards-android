@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.kolaczyn.boards.components.Boards
 import com.kolaczyn.boards.components.BoardsThreads
 import com.kolaczyn.boards.components.ThreadsReplies
 import com.kolaczyn.boards.data.BoardsSource
@@ -14,18 +15,37 @@ import com.kolaczyn.boards.data.BoardsSource
 fun Navigation(boardsSource: BoardsSource) {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = Screen.MainScreen.route) {
-        composable(route = Screen.MainScreen.route) {
-            BoardsThreads(boardsSource, navController)
+    NavHost(navController = navController, startDestination = Screen.BoardsScreen.route) {
+        composable(route = Screen.BoardsScreen.route) {
+            Boards(boardsSource, navController)
         }
 
         composable(
-            route = Screen.DetailScreen.route + "/{threadId}",
-            listOf(navArgument("threadId") {
+            route = "${Screen.ThreadsScreen.route}/{boardSlug}",
+            listOf(navArgument("boardSlug") {
+                type = NavType.StringType
+            })
+        ) { entry ->
+            BoardsThreads(
+                boardsSource,
+                entry.arguments?.getString("boardSlug"),
+                navController
+            )
+        }
+
+        composable(
+            route = "${Screen.RepliesScreen.route}/{boardSlug}/{threadId}",
+            listOf(navArgument("boardSlug") {
+                type = NavType.StringType
+            }, navArgument("threadId") {
                 type = NavType.IntType
             })
         ) { entry ->
-            ThreadsReplies(boardsSource, entry.arguments?.getInt("threadId"))
+            ThreadsReplies(
+                boardsSource,
+                entry.arguments?.getString("boardSlug"),
+                entry.arguments?.getInt("threadId")
+            )
         }
     }
 }

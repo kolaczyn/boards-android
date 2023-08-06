@@ -16,8 +16,8 @@ import androidx.compose.ui.unit.sp
 import com.kolaczyn.boards.data.BoardsSource
 
 @Composable
-fun ThreadsReplies(boardsSource: BoardsSource, threadId: Int?) {
-    val replies by boardsSource.getThreadsReplies("a", threadId = threadId ?: 0)
+fun ThreadsReplies(boardsSource: BoardsSource, boardSlug: String?, threadId: Int?) {
+    val replies by boardsSource.getThreadsReplies(boardSlug ?: "a", threadId = threadId ?: 0)
         .collectAsState(initial = null)
 
     Column(

@@ -19,14 +19,13 @@ import com.kolaczyn.boards.data.BoardsSource
 import com.kolaczyn.boards.navigation.Screen
 
 @Composable
-fun BoardsThreads(boardsSource: BoardsSource, boardSlug: String?, navController: NavController) {
-    val threads by boardsSource.getBoardsThreads(boardSlug ?: "a").collectAsState(initial = null)
+fun Boards(boardsSource: BoardsSource, navController: NavController) {
+    val boards by boardsSource.getBoards().collectAsState(initial = null)
 
-    val navigate = { threadId: Int ->
+    val navigate = { boardSlug: String ->
         navController.navigate(
-            Screen.RepliesScreen.withArgs(
-                boardSlug ?: "a",
-                "$threadId",
+            Screen.ThreadsScreen.withArgs(
+                boardSlug
             )
         )
     }
@@ -37,14 +36,14 @@ fun BoardsThreads(boardsSource: BoardsSource, boardSlug: String?, navController:
             .padding(10.dp)
     ) {
         Text(
-            text = if (threads != null) "Threads on /${threads?.slug}/" else "",
+            text = if (boards != null) "Boards" else "",
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp
         )
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-            for (thread in threads?.threads ?: emptyList()) {
-                Button(onClick = { navigate(thread.id) }) {
-                    Text(text = thread.message)
+            for (thread in boards ?: emptyList()) {
+                Button(onClick = { navigate(thread.slug) }) {
+                    Text(text = "${thread.name} - /${thread.slug}/")
                 }
             }
         }
