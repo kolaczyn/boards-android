@@ -4,24 +4,31 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.kolaczyn.boards.models.BoardsThreadsDto
 import com.kolaczyn.boards.models.ReplyDto
 import com.kolaczyn.boards.models.ThreadsRepliesDto
@@ -32,6 +39,7 @@ import kotlinx.coroutines.flow.flow
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
+import retrofit2.http.Path
 
 class MainActivity : ComponentActivity() {
     private val boardsSource = BoardsSource()
@@ -43,7 +51,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    RepliesList(boardsSource = boardsSource)
+                    Navigation(boardsSource = boardsSource)
                 }
             }
         }
@@ -51,11 +59,14 @@ class MainActivity : ComponentActivity() {
 }
 
 interface BoardsApiClient {
-    @GET("/boards/a/threads/47")
-    suspend fun getThreadsReplies(): ThreadsRepliesDto
+    @GET("/boards/{slug}/threads/{threadId}")
+    suspend fun getThreadsReplies(
+        @Path("slug") slug: String,
+        @Path("threadId") threadId: Int
+    ): ThreadsRepliesDto
 
-    @GET("/boards/a")
-    suspend fun getBoardsReplies(): BoardsThreadsDto
+    @GET("/boards/{slug}")
+    suspend fun getBoardsReplies(@Path("slug") slug: String): BoardsThreadsDto
 }
 
 object RetrofitBuilder {
@@ -72,18 +83,18 @@ object RetrofitBuilder {
 class BoardsSource {
     private val apiService = RetrofitBuilder.boardsService
 
-    fun getThreadsReplies(): Flow<ThreadsRepliesDto?> = flow {
+    fun getThreadsReplies(slug: String, threadId: Int): Flow<ThreadsRepliesDto?> = flow {
         try {
-            emit(apiService.getThreadsReplies())
+            emit(apiService.getThreadsReplies(slug, threadId))
         } catch (e: Exception) {
             Log.e("BoardsSource", e.toString())
             emit(null)
         }
     }
 
-    fun getBoardsThreads(): Flow<BoardsThreadsDto?> = flow {
+    fun getBoardsThreads(slug: String): Flow<BoardsThreadsDto?> = flow {
         try {
-            emit(apiService.getBoardsReplies())
+            emit(apiService.getBoardsReplies(slug))
         } catch (e: Exception) {
             Log.e("BoardsSource", e.toString())
             emit(null)
@@ -114,33 +125,73 @@ fun GreetingPreview() {
 }
 
 
-fun createMockReplies(): List<ReplyDto> {
-    val reply1 = ReplyDto(1, "Hello, how are you?", "2023-07-31T19:13:51.647387Z")
-    val reply2 = ReplyDto(2, "I'm doing great, thanks!", "2023-07-31T19:13:51.647387Z")
-    val reply3 = ReplyDto(3, "What about you?", "2023-07-31T19:13:51.647387Z")
-    val reply4 = ReplyDto(4, "I'm doing fine too.", "2023-07-31T19:13:51.647387Z")
-    val reply5 = ReplyDto(5, "Let's meet up later.", "2023-07-31T19:13:51.647387Z")
+sealed class Screen(val route: String) {
+    object MainScreen : Screen(route = "main_screen")
+    object DetailScreen : Screen(route = "detail_screen")
 
-    return listOf(reply1, reply2, reply3, reply4, reply5)
+    fun withArgs(vararg args: String): String = buildString {
+        append(route)
+        args.forEach { arg ->
+            append("/$arg")
+        }
+    }
 }
 
 @Composable
-fun RepliesList(boardsSource: BoardsSource) {
-    val replies by boardsSource.getThreadsReplies().collectAsState(initial = null)
-    val threads by boardsSource.getBoardsThreads().collectAsState(initial = null)
+fun ThreadsReplies(boardsSource: BoardsSource, navController: NavController, threadId: Int?) {
+    val replies by boardsSource.getThreadsReplies("a", threadId = threadId ?: 0)
+        .collectAsState(initial = null)
 
-
-    if (replies == null || threads == null) {
-        Text(text = "Loading...")
-    }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Box(
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(10.dp)
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .weight(1f),
-            contentAlignment = Alignment.TopCenter
+                .padding(bottom = 4.dp)
         ) {
+            Text(
+                text = if (replies == null) "" else "Thread #${replies?.id}",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                for (reply in replies?.replies ?: emptyList()) {
+                    ReplyItem(reply = reply)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun Navigation(boardsSource: BoardsSource) {
+    val navController = rememberNavController()
+
+    NavHost(navController = navController, startDestination = Screen.MainScreen.route) {
+        composable(route = Screen.MainScreen.route) {
+            BoardsThreads(boardsSource, navController)
+        }
+        composable(
+            route = Screen.DetailScreen.route + "/{threadId}",
+            listOf(navArgument("threadId") {
+                type = NavType.IntType
+            })
+        ) { entry ->
+            ThreadsReplies(boardsSource, navController, entry.arguments?.getInt("threadId"))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BoardsThreads(boardsSource: BoardsSource, navController: NavController) {
+    val threads by boardsSource.getBoardsThreads("a").collectAsState(initial = null)
+
+    Scaffold { padding ->
+        Column(modifier = Modifier.fillMaxSize()) {
             Surface(
                 modifier = Modifier
                     .fillMaxSize()
@@ -152,51 +203,25 @@ fun RepliesList(boardsSource: BoardsSource) {
                         .padding(bottom = 4.dp)
                 ) {
                     Text(
-                        text = "Threads on /a/",
+                        text = if (threads != null) "Threads on /${threads?.slug}/" else "",
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
                     )
                     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         for (thread in threads?.threads ?: emptyList()) {
-                            Text(text = thread.message)
+                            Button(onClick = {
+                                navController.navigate(
+                                    Screen.DetailScreen.withArgs(
+                                        "${thread.id}"
+                                    )
+                                )
+                            }) {
+                                Text(text = thread.message)
+                            }
                         }
                     }
                 }
-
-            }
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .weight(2f),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-
-            Surface(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(10.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 4.dp)
-                ) {
-                    Text(
-                        text = "Thread #438",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
-                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                        for (reply in replies?.replies ?: emptyList()) {
-                            ReplyItem(reply = reply)
-                        }
-                    }
-                }
-
             }
         }
     }
-
-
 }
