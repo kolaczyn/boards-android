@@ -1,0 +1,51 @@
+package com.kolaczyn.boards.components
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import com.kolaczyn.boards.data.BoardsSource
+import com.kolaczyn.boards.navigation.Screen
+
+@Composable
+fun BoardsThreads(boardsSource: BoardsSource, navController: NavController) {
+    val threads by boardsSource.getBoardsThreads("a").collectAsState(initial = null)
+
+    val navigate = { threadId: Int ->
+        navController.navigate(
+            Screen.DetailScreen.withArgs(
+                "$threadId"
+            )
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(10.dp)
+    ) {
+        Text(
+            text = if (threads != null) "Threads on /${threads?.slug}/" else "",
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp
+        )
+        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            for (thread in threads?.threads ?: emptyList()) {
+                Button(onClick = { navigate(thread.id) }) {
+                    Text(text = thread.message)
+                }
+            }
+        }
+    }
+}

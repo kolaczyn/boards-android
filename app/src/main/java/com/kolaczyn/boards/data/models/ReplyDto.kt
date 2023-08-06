@@ -1,4 +1,4 @@
-package com.kolaczyn.boards.models
+package com.kolaczyn.boards.data.models
 
 data class ReplyDto(
     val id: Int,
