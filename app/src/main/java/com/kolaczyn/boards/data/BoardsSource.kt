@@ -3,6 +3,7 @@ package com.kolaczyn.boards.data
 import android.util.Log
 import com.kolaczyn.boards.data.models.BoardDto
 import com.kolaczyn.boards.data.models.BoardsThreadsDto
+import com.kolaczyn.boards.data.models.CreateReplyDto
 import com.kolaczyn.boards.data.models.ThreadsRepliesDto
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -37,4 +38,15 @@ class BoardsSource {
         }
     }
 
+    fun postReply(slug: String, threadId: Int, message: String): Flow<Boolean?> = flow {
+        try {
+            var result = apiService.postReply(slug, threadId, CreateReplyDto(message))
+            // log result
+            Log.i("postReply", result.toString())
+            emit(true)
+        } catch (e: Exception) {
+            Log.e("BoardsSource", e.toString())
+            emit(null)
+        }
+    }
 }
