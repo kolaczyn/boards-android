@@ -33,8 +33,9 @@ fun ThreadsReplies(boardsSource: BoardsSource, boardSlug: String?, threadId: Int
     var replyInput by remember { mutableStateOf("") }
 
     var sendReply: () -> Unit = {
+        val message = replyInput
         coroutineScope.launch {
-            boardsSource.postReply(boardSlug ?: "a", threadId ?: 0, replyInput).collect {
+            boardsSource.postReply(boardSlug ?: "a", threadId ?: 0, message).collect {
             }
         }
         replyInput = ""

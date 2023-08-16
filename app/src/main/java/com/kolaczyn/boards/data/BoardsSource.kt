@@ -40,9 +40,8 @@ class BoardsSource {
 
     fun postReply(slug: String, threadId: Int, message: String): Flow<Boolean?> = flow {
         try {
+
             var result = apiService.postReply(slug, threadId, CreateReplyDto(message))
-            // log result
-            Log.i("postReply", result.toString())
             emit(true)
         } catch (e: Exception) {
             Log.e("BoardsSource", e.toString())
